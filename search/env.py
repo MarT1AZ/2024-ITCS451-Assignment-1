@@ -82,8 +82,8 @@ def gen_maze(
         for m in waters:
             grid[passables[m]] = 8
 
-    # grid[start] = np.random.choice([20, 30, 40, 50])
-    grid[start] = np.random.choice([2, 3, 4, 5])
+    grid[start] = np.random.choice([20, 30, 40, 50])
+    # grid[start] = np.random.choice([2, 3, 4, 5])
     grid[goal] = 6
     grid.flags.writeable = False
     return grid.T
