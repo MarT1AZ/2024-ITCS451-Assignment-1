@@ -55,6 +55,8 @@ def cost(state: State, actoin: str, grid: np.ndarray) -> float:
     # TODO
     # Place the following lines with your own implementation
     # State (x,y,f)
+    if(grid[state[1]][state[0]] > 19 and grid[state[1]][state[0]] < 60):
+        return 0
     return grid[state[1]][state[0]]
 
 
@@ -195,7 +197,7 @@ def graph_search(
         # keep track of minimum weight sum of each cell
         weight_grid = np.ndarray((len(grid),len(grid[0])))
         weight_grid.fill(np.inf)
-        weight_grid[ay][ax] = grid[ay][ax] #initial weight
+        weight_grid[ay][ax] = 0 #initial weight at agent position (weight = 0)
         # keep track of minimum weight sum of each cell
         
         visited.add((ax,ay))
@@ -214,12 +216,11 @@ def graph_search(
                     min_weight = np.inf
                     for dx,dy in dir_map:
                         nbcell = (cell[0] + dx,cell[1] + dy)
-                        if(nbcell in visited and weight_grid[nbcell[1]][nbcell[0]] != np.inf and weight_grid[nbcell[1]][nbcell[0]] < min_weight):
+                        if nbcell in visited and weight_grid[nbcell[1]][nbcell[0]] != np.inf and weight_grid[nbcell[1]][nbcell[0]] < min_weight:
                             min_weight = weight_grid[nbcell[1]][nbcell[0]]
-                            weight_grid[cell[1]][cell[0]] = min_weight + grid[cell[1]][cell[0]]
+                            weight_grid[cell[1]][cell[0]] = min_weight + grid[cell[1]][cell[0]] + 1
                             if grid[cell[1]][cell[0]] == 6:
                                 found_flag = True
-                                break
             if found_flag:
                 break
 
@@ -244,6 +245,7 @@ def graph_search(
             for dx,dy in dir_map:
                 nbcell = (current_cell[0] + dx,current_cell[1] + dy)
                 if weight_grid[nbcell[1]][nbcell[0]] != np.inf and min_weight > weight_grid[nbcell[1]][nbcell[0]]:
+                    min_weight = weight_grid[nbcell[1]][nbcell[0]]
                     next_cell = (nbcell[0],nbcell[1])
             dx,dy = current_cell[0] - next_cell[0],current_cell[1] - next_cell[1]
             assign_dir = ''
@@ -267,13 +269,6 @@ def graph_search(
             explored[i] = (explored[i][0],explored[i][1],'W')
         plans.reverse()
         actions.reverse()
-        print(weight_grid)
-        visual_plan = np.ndarray((len(grid),len(grid[0])))
-        visual_plan.fill(0)
-        for n in plans:
-            (x,y,dir) = n
-            visual_plan[y][x] = 1
-        print(visual_plan)
 
 
     return (actions,plans,explored)

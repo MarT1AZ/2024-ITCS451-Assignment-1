@@ -56,7 +56,7 @@ print('Total explored states (iterations):', len(explored_states))
 
 
 pygame.display.flip()
-time.sleep(5)
+time.sleep(3)
 pygame.quit()
 
 input('Hit `Enter` to end the program.')
