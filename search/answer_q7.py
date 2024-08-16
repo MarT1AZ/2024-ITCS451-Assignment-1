@@ -90,34 +90,46 @@ def graph_search(
     ax,ay = find_agent(grid)
     ax = int(ax)
     ay = int(ay)
-    # '^', '>', 'v', '<'
-    #  2   3     4    5
-    # agent positions are 0-indexed so plus one to make it look like 1 - indexed
+    dir_str_map = ['N','E','S','W']
+    dir_map = [(1,0),(0,1),(-1,0),(0,-1)]
+
+    # use for backtracking from goal to start cell
+    dict_assign_index = 0
+    parent_dict = {}
+    # use for backtracking from goal to start cell
+
     
-    # Symbol mapping:
-    # -  0: ' ', empty (passable)
-    # -  1: '#', wall (not passable)
-    # -  2x: '^', agent is facing up (north)
-    # -  3x: '>', agent is facing right (east)
-    # -  4x: 'v', agent is facing down (south)
-    # -  5x: '<', agent is facing left (west)
-    # -  6: 'G', goal
-    # -  7: '~', mud (passable, but cost more)
-    # -  8: '.', grass (passable, but cost more)
-    # """
-    t = 0
+
+
+
+    """
+    '^', '>', 'v', '<'
+     2   3     4    5
+    agent positions are 0-indexed so plus one to make it look like 1 - indexed
+    
+    Symbol mapping:
+    -  0: ' ', empty (passable)
+    -  1: '#', wall (not passable)
+    -  2x: '^', agent is facing up (north)
+    -  3x: '>', agent is facing right (east)
+    -  4x: 'v', agent is facing down (south)
+    -  5x: '<', agent is facing left (west)
+    -  6: 'G', goal
+    -  7: '~', mud (passable, but cost more)
+    -  8: '.', grass (passable, but cost more)
+    """
     if strategy == 'DFS':
-        dir_str_map = ['N','E','S','W']
-        dir_map = [(1,0),(0,1),(-1,0),(0,-1)]
-        dict_assign_index = 0
-        parent_dict = {}
+        
+        # use for tracking visted cell and choosing where to go next (for DFS)
+        tovisit = []
+        visited = set()
+        # use for tracking visted cell and choosing where to go next (for DFS)
+
         # dict does not contain -1 as a key
         # state format --> (level * -1,x,y,dir,parent_index) while x and y are 1 - indexed
         init_state = (-1,ax, ay, dir_str_map[(grid[ay][ax] // 10) - 2],-1)
         # parent_dict[str(dict_assign_index)] = init_state
         # dict_assign_index = 1
-        tovisit = []
-        visited = set()
         tovisit.append(init_state)
         found_flag = False
         goal_node = None
@@ -169,7 +181,103 @@ def graph_search(
             explored[i] = (explored[i][0],explored[i][1],'W')
         actions.reverse()
         plans.reverse()
-        return (actions,plans,explored)
+        
+
+    elif strategy == 'BFS':
+
+        found_flag = False
+        #  keep track of explored cell and where to go next (for BFS)
+        visited = set()
+        tovisit = set()
+        tovisitnext = set()
+        #  keep track of explored cell and where to go next (for BFS)
+
+        # keep track of minimum weight sum of each cell
+        weight_grid = np.ndarray((len(grid),len(grid[0])))
+        weight_grid.fill(np.inf)
+        weight_grid[ay][ax] = grid[ay][ax] #initial weight
+        # keep track of minimum weight sum of each cell
+        
+        visited.add((ax,ay))
+        tovisit.add((ax + 1,ay))
+        tovisit.add((ax,ay + 1))
+        while not found_flag:
+            
+            for cell in tovisit:
+                if found_flag:
+                    break
+                if(grid[cell[1]][cell[0]] != 1):
+                    visited.add(cell)
+                    # finding visited neighbor cell woth lowest weight sum
+                    # atleast one neighbor cell must contain a sum
+                    # assign the weight into the weight matrix
+                    min_weight = np.inf
+                    for dx,dy in dir_map:
+                        nbcell = (cell[0] + dx,cell[1] + dy)
+                        if(nbcell in visited and weight_grid[nbcell[1]][nbcell[0]] != np.inf and weight_grid[nbcell[1]][nbcell[0]] < min_weight):
+                            min_weight = weight_grid[nbcell[1]][nbcell[0]]
+                            weight_grid[cell[1]][cell[0]] = min_weight + grid[cell[1]][cell[0]]
+                            if grid[cell[1]][cell[0]] == 6:
+                                found_flag = True
+                                break
+            if found_flag:
+                break
+
+            for cell in tovisit:
+                # find neightbor cell that has not been visited
+                for dx,dy in dir_map:
+                    nbcell = (cell[0] + dx,cell[1] + dy)
+                    if nbcell not in visited and grid[nbcell[1]][nbcell[0]] != 1:
+                        tovisitnext.add(nbcell)
+
+            tovisit.clear()
+            tovisit = tovisit.union(tovisitnext)
+            tovisitnext.clear()
+
+        # backtracking (Dijkstar,BFS)
+        plans.append((len(grid) - 2,len(grid[0]) - 2,'W'))
+        actions.append('at the end')
+        current_cell = (len(grid) - 2,len(grid[0]) - 2)
+        while current_cell != (ax,ay):
+            next_cell = None
+            min_weight = np.inf
+            for dx,dy in dir_map:
+                nbcell = (current_cell[0] + dx,current_cell[1] + dy)
+                if weight_grid[nbcell[1]][nbcell[0]] != np.inf and min_weight > weight_grid[nbcell[1]][nbcell[0]]:
+                    next_cell = (nbcell[0],nbcell[1])
+            dx,dy = current_cell[0] - next_cell[0],current_cell[1] - next_cell[1]
+            assign_dir = ''
+            if(dx == 1 and dy == 0):
+                assign_dir = 'E'
+                actions.append('move EAST')
+            elif(dx == 0 and dy == 1):
+                assign_dir = 'S'
+                actions.append('move SOUTH')
+            elif(dx == -1 and dy == 0):
+                assign_dir = 'W'
+                actions.append('move WEST')
+            else:
+                assign_dir = 'N'
+                actions.append('move NORTH')
+            current_cell = next_cell
+            plans.append((current_cell[0],current_cell[1],assign_dir))
+        
+        explored = list(visited)
+        for i in range(len(explored)):
+            explored[i] = (explored[i][0],explored[i][1],'W')
+        plans.reverse()
+        actions.reverse()
+        print(weight_grid)
+        visual_plan = np.ndarray((len(grid),len(grid[0])))
+        visual_plan.fill(0)
+        for n in plans:
+            (x,y,dir) = n
+            visual_plan[y][x] = 1
+        print(visual_plan)
+
+
+    return (actions,plans,explored)
+
 
         
         
