@@ -12,7 +12,7 @@ CELL_SIZE = 40
 WINDOW_SIZE = (CELL_SIZE * GRID_SIZE, CELL_SIZE * GRID_SIZE)
 
 grid = env.gen_maze(GRID_SIZE, add_mud=True, add_grass=True)
-# (a,b,c) = answer_q7.graph_search(grid, 'BFS')
+# (a,b,c) = answer_q7.graph_search(grid, 'A*')
 # print(a,b)
 # print(grid)
 # ➜  ~ python3 -m venv venv
@@ -25,35 +25,34 @@ pygame.display.set_caption('Pathfinding')
 env.render_maze_game(grid, screen, CELL_SIZE)
 
 # Start the search
-plan_actions, plan_states, explored_states = answer_q7.graph_search(grid, 'BFS')
+plan_actions, plan_states, explored_states = answer_q7.graph_search(grid, 'DFS')
 
 # Visualization
 overlay = np.zeros_like(grid)
 total_cost = 0.0
 for state in explored_states:
     x, y, f = state
-    # print('Explored: ', x, y, f)
+    print('Explored: ', x, y, f)
     overlay[y, x] += 1
     env.render_overlay(overlay, screen, CELL_SIZE)
-    time.sleep(0.01)
+    time.sleep(0.1)
 
 
 overlay = np.zeros_like(grid)
 total_cost = 0.0
 
 for action, state in zip(plan_actions, plan_states):
-    # print(action)
-    # print(state)
+    print(action)
+    print(state)
     total_cost += answer_q7.cost(state, action, grid)
     x, y, f = state
     overlay[y, x] += 101
     env.render_overlay(overlay, screen, CELL_SIZE)
-    time.sleep(0.01)
+    time.sleep(0.1)
 
 print('The plan:', ', '.join(plan_actions))
 print('The plan cost:', total_cost)
 print('Total explored states (iterations):', len(explored_states))
-
 
 pygame.display.flip()
 time.sleep(3)
