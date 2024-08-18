@@ -47,6 +47,7 @@ def transition(state: State, action: str, grid: np.ndarray) -> State:
 def is_goal(state: State, grid: np.ndarray) -> bool:
     """Return whether the state is a goal state."""
     # TODO
+
     pass
 
 
@@ -82,13 +83,13 @@ def heuristic(state: State, goal_state: State) -> float:
     # return abs(dx) + abs(dy)
 
 
-    # 2. euclidian distance
+    # 2. euclidian distance (most reliable to gaurantee shortest path)
 
-    # return int((dx * dx + dy * dy)**(0.5))
+    return int((dx * dx + dy * dy)**(0.5))
 
     #  3. custom
 
-    return (dx * dx + dy * dy)
+    # return (dx * dx + dy * dy)/5
 
 
 
@@ -215,17 +216,19 @@ def graph_search(
     elif strategy == 'BFS': ############################################################################################
 
         found_flag = False
-        #  keep track of explored cell and where to go next (for BFS)
+        #  keep track of explored cell and where to go next (for BFS and DIJKSTRA)
         visited = set()
         tovisit = set()
         tovisitnext = set()
-        #  keep track of explored cell and where to go next (for BFS)
+        #  keep track of explored cell and where to go next (for BFS and DIJKSTRA)
 
         # keep track of minimum weight sum of each cell
         weight_grid = np.ndarray((len(grid),len(grid[0])))
         weight_grid.fill(np.inf)
         weight_grid[ay][ax] = 0 #initial weight at agent position (weight = 0)
         # keep track of minimum weight sum of each cell
+
+        parent_grid = np.ndarray((len(grid),len(grid[0]),2),dtype = int)
         
         visited.add((ax,ay))
         explored.append((ax,ay,'W'))
@@ -247,7 +250,9 @@ def graph_search(
                         nbcell = (cell[0] + dx,cell[1] + dy)
                         if nbcell in visited and weight_grid[nbcell[1]][nbcell[0]] != np.inf and weight_grid[nbcell[1]][nbcell[0]] < min_weight:
                             min_weight = weight_grid[nbcell[1]][nbcell[0]]
-                            weight_grid[cell[1]][cell[0]] = min_weight + 1 # + grid[cell[1]][cell[0]] # uncomment this to convert it into dijkstra
+                            parent_grid[cell[1]][cell[0]][0] = nbcell[0]
+                            parent_grid[cell[1]][cell[0]][1] = nbcell[1]
+                            weight_grid[cell[1]][cell[0]] = min_weight + grid[cell[1]][cell[0]] # uncomment this to convert it into DIJKSTRA
                             if grid[cell[1]][cell[0]] == 6:
                                 found_flag = True
             if found_flag:
@@ -264,18 +269,15 @@ def graph_search(
             tovisit = tovisit.union(tovisitnext)
             tovisitnext.clear()
 
-        # backtracking (Dijkstar,BFS) (backtrack from goal to start)
-        plans.append((len(grid) - 2,len(grid[0]) - 2,'W'))
-        actions.append('at the end')
+        # backtracking (UCS,BFS) (backtrack from goal to start)
+        # plans.append((len(grid) - 2,len(grid[0]) - 2,'W'))
+        # actions.append('at the end')
         current_cell = (goal[0],goal[1])
-        while current_cell != (ax,ay):
+        plans.append((goal[0],goal[1],'W'))
+        actions.append('at the goal')
+        while True:
             parent_cell = None
-            min_weight = np.inf
-            for dx,dy in dir_map:
-                nbcell = (current_cell[0] + dx,current_cell[1] + dy)
-                if weight_grid[nbcell[1]][nbcell[0]] != np.inf and min_weight > weight_grid[nbcell[1]][nbcell[0]]:
-                    min_weight = weight_grid[nbcell[1]][nbcell[0]]
-                    parent_cell = (nbcell[0],nbcell[1])
+            parent_cell = (int(parent_grid[current_cell[1]][current_cell[0]][0]),int(parent_grid[current_cell[1]][current_cell[0]][1]))
             dx,dy = current_cell[0] - parent_cell[0],current_cell[1] - parent_cell[1]
             assign_dir = ''
             if(dx == 1 and dy == 0):
@@ -290,16 +292,18 @@ def graph_search(
             else:
                 assign_dir = 'N'
                 actions.append('move NORTH')
+            plans.append((parent_cell[0],parent_cell[1],'W'))
             current_cell = parent_cell
-            plans.append((current_cell[0],current_cell[1],assign_dir))
+            if current_cell == (1,1):
+                break
         
         plans.reverse()
         actions.reverse()
 
-    elif strategy == 'A*':  ############################################################################################
+    elif strategy == 'A*' or strategy == 'UCS' or strategy == 'GS':  ############################################################################################
         # this section may contain the most comment since this took me 5 hour to implement and debug
 
-        #  keep track of explored cell and where to go next (for BFS)
+        #  keep track of explored cell and where to go next 
         visited = set()
         tovisit = set()
 
@@ -308,10 +312,9 @@ def graph_search(
         weight_grid.fill(np.inf)
         weight_grid[ay][ax] = 0 #initial weight at agent position (weight = 0)
         # keep track of minimum weight sum of each cell
+
         parent_grid = np.ndarray((len(grid),len(grid[0]),2),dtype = int)
-        parent_grid[len(grid) - 1][len(grid[0]) - 1][0].fill(-1)
-        parent_grid[len(grid) - 1][len(grid[0]) - 1][1].fill(-1)
-        parent_grid[ay][ax] = 0
+
 
         tovisit.add((ax,ay)) # start at agent cell
 
@@ -323,8 +326,17 @@ def graph_search(
             
             # select a cell from a choices set to explore next
             for cell in tovisit:
-                h = heuristic((cell[0],cell[1]),(goal[0],goal[1]))
-                if weight_grid[cell[1]][cell[0]] + h <= min_sum:
+                if strategy == 'UCS':
+                    h = 0
+                else:
+                    h = heuristic((cell[0],cell[1]),(goal[0],goal[1]))
+
+                if strategy == 'GS':
+                    if h < min_h:
+                        min_h = h
+                        gonext = (cell[0],cell[1])
+
+                elif weight_grid[cell[1]][cell[0]] + h <= min_sum: # UCS or A*
                     if min_sum == weight_grid[cell[1]][cell[0]] + h and min_h > h:
                         min_h = h
                         gonext = (cell[0],cell[1])
@@ -349,7 +361,7 @@ def graph_search(
                 nbcell = (gonext[0] + dx,gonext[1] + dy)
                 if grid[nbcell[1]][nbcell[0]] != 1 and nbcell not in visited:
                     nearby_weight_sum = weight_grid[gonext[1]][gonext[0]] + 1 + grid[nbcell[1]][nbcell[0]]
-                    if (nbcell[0],nbcell[1]) in tovisit: # if cell is a choice
+                    if strategy != 'GS' and (nbcell[0],nbcell[1]) in tovisit: # if cell is a choice
                         # print("in visit")
                         if weight_grid[nbcell[1]][nbcell[0]] > nearby_weight_sum: # if cell weight sum is greater than weight sum of gonext
                             # print("update")
@@ -359,7 +371,7 @@ def graph_search(
                     else:
                         parent_grid[nbcell[1]][nbcell[0]][0] = gonext[0] # assign parent
                         parent_grid[nbcell[1]][nbcell[0]][1] = gonext[1] # assign parent
-                        weight_grid[nbcell[1]][nbcell[0]] = nearby_weight_sum  # assign weight_sum
+                        weight_grid[nbcell[1]][nbcell[0]] = nearby_weight_sum  # assign weight_sum (does not require for GCS)
                         tovisit.add(nbcell) # add as a choice in list for iteration
 
                     
