@@ -1,3 +1,4 @@
+from pydoc_data.topics import topics
 from typing import Literal, List, Tuple, TypeAlias, Annotated
 import heapq
 
@@ -40,15 +41,19 @@ ACTIONS: List[str] = []
 
 def transition(state: State, action: str, grid: np.ndarray) -> State:
     """Return a new state."""
-    # TODO
-    pass
+      # TODO
+    action_map = {'E':(1,0),'S':(0,1),'W':(-1,0),'N':(-1,0),}
+    dir = action_map.get(action)
+    if grid[state.y + dir[1]][state.x + dir[0]] != 1:
+        return node(state.x + dir[0],state.y + dir[1],None)
+    else:
+        return None
 
 
 def is_goal(state: State, grid: np.ndarray) -> bool:
     """Return whether the state is a goal state."""
     # TODO
-
-    pass
+    return grid[state.y][state.x] == 6
 
 
 def cost(state: State, actoin: str, grid: np.ndarray) -> float:
@@ -152,6 +157,8 @@ def graph_search(
     """
     if strategy == 'DFS':  ############################################################################################
         
+
+        return depth_first_search(grid)
         # use for tracking visted cell and choosing where to go next (for DFS)
         tovisit = []
         visited = set() # keep track which cell has been explored already with o(1) unlike visited the list "explored" which only preserve the order of the cell visiting during the search process
@@ -252,7 +259,7 @@ def graph_search(
                             min_weight = weight_grid[nbcell[1]][nbcell[0]]
                             parent_grid[cell[1]][cell[0]][0] = nbcell[0]
                             parent_grid[cell[1]][cell[0]][1] = nbcell[1]
-                            weight_grid[cell[1]][cell[0]] = min_weight + grid[cell[1]][cell[0]] # uncomment this to convert it into DIJKSTRA
+                            weight_grid[cell[1]][cell[0]] = min_weight + 1 # + grid[cell[1]][cell[0]] # uncomment this to convert it into DIJKSTRA
                             if grid[cell[1]][cell[0]] == 6:
                                 found_flag = True
             if found_flag:
@@ -421,4 +428,74 @@ def graph_search(
     #     [(1, 1, 'W'), (1, 1, 'E'), (1, 1, 'S'), (1, 2, 'S'), (1, 3, 'S'), (2, 1, 'E'), (2, 1, 'S'),(5,4,'W')] 'explored states'
     # )
 
- 
+class node:
+    def __init__(self,x,y,parent) -> None:
+        self.x = x
+        self.y = y
+        self.parent = parent
+
+    def __eq__(self, __o: object) -> bool: # for comparison 
+        return True
+
+    def xy_tuble(self):
+        return (int(self.x),int(self.y))
+
+
+def depth_first_search(
+        grid: np.ndarray
+        ) -> Tuple[
+            Annotated[List[str], 'actions of the plan'],
+            Annotated[List[State], 'states of the plan'],
+            Annotated[List[State], 'explored states']]:
+    """Return a plan (actions and states) and a list of explored states (in order)."""
+
+    # heapq.cmp_lt = new_heap_cmp
+    # declare initial state
+    (ax,ay) = find_agent(grid)
+    init_node = node(ax,ay,None)
+    
+    tovisit = []
+    explored_set = set()
+    explored = []
+    actions = []
+    plans = []
+    action_space = ['W','N','E','S'] # action space
+    action_value = [0.4,0.3,0.2,0.1] # action value offset
+
+    # layout -> (depth,node) # depth is a value that determine the priority
+    stop_value  = 0
+    tovisit.append((0,init_node))
+    goal = None
+    while True:
+        heapq.heapify(tovisit)
+        selected_node = heapq.heappop(tovisit)
+        explored.append((selected_node[1].x,selected_node[1].y,'W'))
+        explored_set.add(selected_node[1].xy_tuble())
+        # print(selected_node[0])
+
+        if is_goal(selected_node[1],grid):
+            goal = selected_node[1]
+            break
+
+        for i in range(0,len(action_space)):
+            action = action_space[i]
+            offset = action_value[i]
+            new_node = transition(selected_node[1],action,grid)
+            
+            if new_node is not None and new_node.xy_tuble() not in explored_set:
+                new_node.parent = selected_node[1]
+                tovisit.append((int(selected_node[0]) - 1 - offset,new_node))
+        # stop_value = stop_value + 1
+    
+    # backtracking 
+    while goal.parent is not None:
+        plans.append((int(goal.x),int(goal.y),'W'))
+        actions.append('-')
+        goal = goal.parent
+    return (actions,plans,explored)
+
+
+
+
+    
+    
