@@ -45,7 +45,7 @@ def transition(state: State, action: str, grid: np.ndarray) -> State:
     action_map = {'E':(1,0),'S':(0,1),'W':(-1,0),'N':(-1,0),}
     dir = action_map.get(action)
     if grid[state.y + dir[1]][state.x + dir[0]] != 1:
-        return node(state.x + dir[0],state.y + dir[1],None)
+        return node(state.x + dir[0],state.y + dir[1],'-',None)
     else:
         return None
 
@@ -61,9 +61,9 @@ def cost(state: State, actoin: str, grid: np.ndarray) -> float:
     # TODO
     # Place the following lines with your own implementation
     # State (x,y,f)
-    if(grid[state[1]][state[0]] > 19 and grid[state[1]][state[0]] < 60):
+    if(grid[state.y][state.x] > 19 and grid[state.y][state.x] < 60):
         return 0
-    return grid[state[1]][state[0]]
+    return grid[state.y][state.x]
 
 
 #===============================================================================
@@ -80,8 +80,8 @@ def heuristic(state: State, goal_state: State) -> float:
 
     # 2 method
 
-    dx =  state[0] - goal_state[0]
-    dy = state[1] - goal_state[1]
+    dx =  state.x - goal_state.x
+    dy = state.y - goal_state.y
 
     # 1. manhattan distance
 
@@ -159,279 +159,22 @@ def graph_search(
         
 
         return depth_first_search(grid)
-        # use for tracking visted cell and choosing where to go next (for DFS)
-        tovisit = []
-        visited = set() # keep track which cell has been explored already with o(1) unlike visited the list "explored" which only preserve the order of the cell visiting during the search process
-        # use for tracking visted cell and choosing where to go next (for DFS)
-
-        # dict does not contain -1 as a key
-        # state format --> (level * -1,x,y,dir,parent_index) while x and y are 1 - indexed
-        init_state = (-1,ax, ay, dir_str_map[(grid[ay][ax] // 10) - 2],-1)
-        # parent_dict[str(dict_assign_index)] = init_state
-        # dict_assign_index = 1
-        tovisit.append(init_state)
-        found_flag = False
-        goal_node = None
-        while not found_flag:
-            heapq.heapify(tovisit)
-            gonext = heapq.heappop(tovisit)
-            parent_dict[str(dict_assign_index)] = gonext
-            visited.add((gonext[1],gonext[2]))
-            explored.append((gonext[1],gonext[2],'W'))
-            # check neighbore cell
-            for dx,dy in dir_map:
-                if grid[gonext[2] + dy][gonext[1] + dx] != 1 and (gonext[1] + dx,gonext[2] + dy) not in visited:
-                    
-                    tovisit.append((gonext[0] - 1,gonext[1] + dx,gonext[2] + dy,'W',dict_assign_index)) # use 'W' but will find the actual dir later
-                    if(grid[gonext[2] + dy][gonext[1] + dx] == 6):
-                        goal_node = (gonext[0] - 1,gonext[1] + dx,gonext[2] + dy,'W',dict_assign_index)
-                        found_flag = True
-                        break
-            dict_assign_index = dict_assign_index + 1
-
-        # backtracking (backtrack from goal to start)
-        nextx,nexty = goal_node[1],goal_node[2]
-        parent = goal_node[4]
-        goal_node = (goal_node[1],goal_node[2],'W')
-        actions.append('at the end')
-        plans.append(goal_node)
-        while parent != -1:
-            plans.append(parent_dict.get(str(parent)))
-            dx,dy = nextx - plans[-1][1],nexty - plans[-1][2]
-            assign_dir = ''
-            if(dx == 1 and dy == 0):
-                assign_dir = 'E'
-                actions.append('move EAST')
-            elif(dx == 0 and dy == 1):
-                assign_dir = 'S'
-                actions.append('move SOUTH')
-            elif(dx == -1 and dy == 0):
-                assign_dir = 'W'
-                actions.append('move WEST')
-            else:
-                assign_dir = 'N'
-                actions.append('move NORTH')
-            parent = plans[-1][4]
-            nextx,nexty = plans[-1][1],plans[-1][2]
-            # reformatting
-            plans[-1] = (plans[-1][1],plans[-1][2],assign_dir)
-
-        actions.reverse()
-        plans.reverse()
         
 
     elif strategy == 'BFS': ############################################################################################
 
-        found_flag = False
-        #  keep track of explored cell and where to go next (for BFS and DIJKSTRA)
-        visited = set()
-        tovisit = set()
-        tovisitnext = set()
-        #  keep track of explored cell and where to go next (for BFS and DIJKSTRA)
-
-        # keep track of minimum weight sum of each cell
-        weight_grid = np.ndarray((len(grid),len(grid[0])))
-        weight_grid.fill(np.inf)
-        weight_grid[ay][ax] = 0 #initial weight at agent position (weight = 0)
-        # keep track of minimum weight sum of each cell
-
-        parent_grid = np.ndarray((len(grid),len(grid[0]),2),dtype = int)
+        return breadth_first_search(grid)
         
-        visited.add((ax,ay))
-        explored.append((ax,ay,'W'))
-        tovisit.add((ax + 1,ay))
-        tovisit.add((ax,ay + 1))
-        while not found_flag:
-            
-            for cell in tovisit:
-                if found_flag:
-                    break
-                if(grid[cell[1]][cell[0]] != 1):
-                    visited.add(cell)
-                    explored.append((cell[0],cell[1],'W'))
-                    # finding visited neighbor cell woth lowest weight sum
-                    # atleast one neighbor cell must contain a sum
-                    # assign the weight into the weight matrix
-                    min_weight = np.inf
-                    for dx,dy in dir_map:
-                        nbcell = (cell[0] + dx,cell[1] + dy)
-                        if nbcell in visited and weight_grid[nbcell[1]][nbcell[0]] != np.inf and weight_grid[nbcell[1]][nbcell[0]] < min_weight:
-                            min_weight = weight_grid[nbcell[1]][nbcell[0]]
-                            parent_grid[cell[1]][cell[0]][0] = nbcell[0]
-                            parent_grid[cell[1]][cell[0]][1] = nbcell[1]
-                            weight_grid[cell[1]][cell[0]] = min_weight + 1 # + grid[cell[1]][cell[0]] # uncomment this to convert it into DIJKSTRA
-                            if grid[cell[1]][cell[0]] == 6:
-                                found_flag = True
-            if found_flag:
-                break
-
-            for cell in tovisit:
-                # find neightbor cell that has not been visited
-                for dx,dy in dir_map:
-                    nbcell = (cell[0] + dx,cell[1] + dy)
-                    if nbcell not in visited and grid[nbcell[1]][nbcell[0]] != 1:
-                        tovisitnext.add(nbcell)
-
-            tovisit.clear()
-            tovisit = tovisit.union(tovisitnext)
-            tovisitnext.clear()
-
-        # backtracking (UCS,BFS) (backtrack from goal to start)
-        # plans.append((len(grid) - 2,len(grid[0]) - 2,'W'))
-        # actions.append('at the end')
-        current_cell = (goal[0],goal[1])
-        plans.append((goal[0],goal[1],'W'))
-        actions.append('at the goal')
-        while True:
-            parent_cell = None
-            parent_cell = (int(parent_grid[current_cell[1]][current_cell[0]][0]),int(parent_grid[current_cell[1]][current_cell[0]][1]))
-            dx,dy = current_cell[0] - parent_cell[0],current_cell[1] - parent_cell[1]
-            assign_dir = ''
-            if(dx == 1 and dy == 0):
-                assign_dir = 'E'
-                actions.append('move EAST')
-            elif(dx == 0 and dy == 1):
-                assign_dir = 'S'
-                actions.append('move SOUTH')
-            elif(dx == -1 and dy == 0):
-                assign_dir = 'W'
-                actions.append('move WEST')
-            else:
-                assign_dir = 'N'
-                actions.append('move NORTH')
-            plans.append((parent_cell[0],parent_cell[1],'W'))
-            current_cell = parent_cell
-            if current_cell == (1,1):
-                break
-        
-        plans.reverse()
-        actions.reverse()
-
     elif strategy == 'A*' or strategy == 'UCS' or strategy == 'GS':  ############################################################################################
-        # this section may contain the most comment since this took me 5 hour to implement and debug
-
-        #  keep track of explored cell and where to go next 
-        visited = set()
-        tovisit = set()
-
-        # keep track of minimum weight sum of each cell
-        weight_grid = np.ndarray((len(grid),len(grid[0])))
-        weight_grid.fill(np.inf)
-        weight_grid[ay][ax] = 0 #initial weight at agent position (weight = 0)
-        # keep track of minimum weight sum of each cell
-
-        parent_grid = np.ndarray((len(grid),len(grid[0]),2),dtype = int)
-
-
-        tovisit.add((ax,ay)) # start at agent cell
-
-        while True:
-
-            min_sum = np.inf # variable for minimum weight_sum + 1 + heuristic
-            min_h = np.inf # variable for minimum heuristic
-            gonext = None
-            
-            # select a cell from a choices set to explore next
-            for cell in tovisit:
-                if strategy == 'UCS':
-                    h = 0
-                else:
-                    h = heuristic((cell[0],cell[1]),(goal[0],goal[1]))
-
-                if strategy == 'GS':
-                    if h < min_h:
-                        min_h = h
-                        gonext = (cell[0],cell[1])
-
-                elif weight_grid[cell[1]][cell[0]] + h <= min_sum: # UCS or A*
-                    if min_sum == weight_grid[cell[1]][cell[0]] + h and min_h > h:
-                        min_h = h
-                        gonext = (cell[0],cell[1])
-                    else:
-                        min_h = h
-                        min_sum = weight_grid[cell[1]][cell[0]] + h
-                        gonext = (cell[0],cell[1])
-
-            # also remove gonext from the tovisit set o(1)
-            if gonext == None:
-                print(grid)
-            visited.add(gonext)
-            explored.append((gonext[0],gonext[1],'W'))
-            tovisit.remove(gonext)
-            if gonext == goal:
-                break
-            
-            # find new choices based on gonext
-            # also update weight_sum for nbcells that are choices
-            for dir in dir_map:
-                dx,dy = dir
-                nbcell = (gonext[0] + dx,gonext[1] + dy)
-                if grid[nbcell[1]][nbcell[0]] != 1 and nbcell not in visited:
-                    nearby_weight_sum = weight_grid[gonext[1]][gonext[0]] + 1 + grid[nbcell[1]][nbcell[0]]
-                    if strategy != 'GS' and (nbcell[0],nbcell[1]) in tovisit: # if cell is a choice
-                        # print("in visit")
-                        if weight_grid[nbcell[1]][nbcell[0]] > nearby_weight_sum: # if cell weight sum is greater than weight sum of gonext
-                            # print("update")
-                            parent_grid[nbcell[1]][nbcell[0]][0] = gonext[0] # update parent
-                            parent_grid[nbcell[1]][nbcell[0]][1] = gonext[1] # update parent
-                            weight_grid[nbcell[1]][nbcell[0]] = nearby_weight_sum # update the lower weight_sum
-                    else:
-                        parent_grid[nbcell[1]][nbcell[0]][0] = gonext[0] # assign parent
-                        parent_grid[nbcell[1]][nbcell[0]][1] = gonext[1] # assign parent
-                        weight_grid[nbcell[1]][nbcell[0]] = nearby_weight_sum  # assign weight_sum (does not require for GCS)
-                        tovisit.add(nbcell) # add as a choice in list for iteration
-
-                    
-        # backtracking for (A*) (backtrack from goal to start)
-        current_cell = (goal[0],goal[1])
-        plans.append((goal[0],goal[1],'W'))
-        actions.append('at the goal')
-        while True:
-            parent_cell = None
-            parent_cell = (int(parent_grid[current_cell[1]][current_cell[0]][0]),int(parent_grid[current_cell[1]][current_cell[0]][1]))
-            dx,dy = current_cell[0] - parent_cell[0],current_cell[1] - parent_cell[1]
-            assign_dir = ''
-            if(dx == 1 and dy == 0):
-                assign_dir = 'E'
-                actions.append('move EAST')
-            elif(dx == 0 and dy == 1):
-                assign_dir = 'S'
-                actions.append('move SOUTH')
-            elif(dx == -1 and dy == 0):
-                assign_dir = 'W'
-                actions.append('move WEST')
-            else:
-                assign_dir = 'N'
-                actions.append('move NORTH')
-            plans.append((parent_cell[0],parent_cell[1],'W'))
-            current_cell = parent_cell
-            if current_cell == (1,1):
-                break
-        plans.reverse()
-        actions.reverse()
-
-
-
-
-                
-
-    return (actions,plans,explored)
-
-
         
-        
+        return cost_search(grid)
 
-    # init_state = (1, 1, 'W')
-    # return (
-    #     ['move west', 'move east', 'move east', 'move south'], actions of the plan'
-    #     [(1, 1, 'S'), (2, 1, 'S'), (3, 1, 'S'), (4, 1, 'S')], 'states of the plan'
-    #     [(1, 1, 'W'), (1, 1, 'E'), (1, 1, 'S'), (1, 2, 'S'), (1, 3, 'S'), (2, 1, 'E'), (2, 1, 'S'),(5,4,'W')] 'explored states'
-    # )
 
 class node:
-    def __init__(self,x,y,parent) -> None:
+    def __init__(self,x,y,direction,parent) -> None:
         self.x = x
         self.y = y
+        self.direction = direction
         self.parent = parent
 
     def __eq__(self, __o: object) -> bool: # for comparison 
@@ -439,6 +182,9 @@ class node:
 
     def xy_tuble(self):
         return (int(self.x),int(self.y))
+    
+    def state_tuble(self):
+        return (int(self.x),int(self.y),self.direction)
 
 
 def depth_first_search(
@@ -449,50 +195,236 @@ def depth_first_search(
             Annotated[List[State], 'explored states']]:
     """Return a plan (actions and states) and a list of explored states (in order)."""
 
-    # heapq.cmp_lt = new_heap_cmp
-    # declare initial state
-    (ax,ay) = find_agent(grid)
-    init_node = node(ax,ay,None)
-    
-    tovisit = []
-    explored_set = set()
-    explored = []
-    actions = []
-    plans = []
+
+    facing_map = ['N','E','S','W'] # to determine facing based on value 20 30 40 50
+
     action_space = ['W','N','E','S'] # action space
     action_value = [0.4,0.3,0.2,0.1] # action value offset
 
+
+    # declare initial state
+    (ax,ay) = find_agent(grid)
+    init_node = node(ax,ay,facing_map[grid[ay][ax]//10 - 2],None)
+    
+    tovisit = []
+    explored_set = set() # for cheking if the node ahs been visited or not in o(1)
+
+    explored = [] # keep the order of exploration
+    actions = [] 
+    plans = []
+
+    action_space = ['W','N','E','S'] # action space
+    action_str = ['Move West','Move North','Move East','Move South','At the start']
+    action_value = [0.4,0.3,0.2,0.1] # action value offset
+
     # layout -> (depth,node) # depth is a value that determine the priority
-    stop_value  = 0
+
     tovisit.append((0,init_node))
-    goal = None
+
     while True:
         heapq.heapify(tovisit)
-        selected_node = heapq.heappop(tovisit)
-        explored.append((selected_node[1].x,selected_node[1].y,'W'))
-        explored_set.add(selected_node[1].xy_tuble())
-        # print(selected_node[0])
+        current_node = heapq.heappop(tovisit)
+        explored.append((current_node[1].state_tuble()))
+        explored_set.add(current_node[1].xy_tuble())
 
-        if is_goal(selected_node[1],grid):
-            goal = selected_node[1]
+        if is_goal(current_node[1],grid):
+            # backtracking to form path on plans list
+            backtrack_node = current_node[1]
+            while backtrack_node.parent is not None:
+                plans.append(backtrack_node.state_tuble())
+                actions.append(action_str[action_space.index(backtrack_node.direction)])
+                backtrack_node = backtrack_node.parent
+            plans.append(backtrack_node.state_tuble())
+            actions.append(action_str[action_space.index(backtrack_node.direction)])
+            actions[-1] = action_str[4]
+
             break
 
         for i in range(0,len(action_space)):
             action = action_space[i]
             offset = action_value[i]
-            new_node = transition(selected_node[1],action,grid)
+            new_node = transition(current_node[1],action,grid)
             
             if new_node is not None and new_node.xy_tuble() not in explored_set:
-                new_node.parent = selected_node[1]
-                tovisit.append((int(selected_node[0]) - 1 - offset,new_node))
-        # stop_value = stop_value + 1
-    
-    # backtracking 
-    while goal.parent is not None:
-        plans.append((int(goal.x),int(goal.y),'W'))
-        actions.append('-')
-        goal = goal.parent
+                new_node.parent = current_node[1]
+                new_node.direction = action
+                tovisit.append((int(current_node[0]) - 1 - offset,new_node))
+
+    plans.reverse()
+    actions.reverse()
     return (actions,plans,explored)
+
+
+def breadth_first_search(
+        grid: np.ndarray
+        ) -> Tuple[
+            Annotated[List[str], 'actions of the plan'],
+            Annotated[List[State], 'states of the plan'],
+            Annotated[List[State], 'explored states']]:
+    """Return a plan (actions and states) and a list of explored states (in order)."""
+
+    facing_map = ['N','E','S','W'] # to determine facing based on value 20 30 40 50
+
+    action_space = ['W','N','E','S'] # action space
+    action_str = ['Move West','Move North','Move East','Move South','At the start']
+
+
+    # declare initial state
+    (ax,ay) = find_agent(grid)
+    init_node = node(ax,ay,facing_map[grid[ay][ax]//10 - 2],None)
+
+    explored = []
+    explored_set = set()
+    tovisitnext = []
+
+    actions = []
+    plans = []
+
+    # layout (node)
+    explored.append(init_node.state_tuble())
+    explored_set.add(init_node.xy_tuble())
+    tovisitnext.append(init_node)
+
+
+    while len(tovisitnext) != 0:
+        
+        current_node = tovisitnext.pop(0)
+
+        if is_goal(current_node,grid):
+            # Backtracking
+            backtrack_node = current_node
+            while backtrack_node.parent is not None:
+                plans.append(backtrack_node.state_tuble())
+                actions.append(action_str[action_space.index(backtrack_node.direction)])
+                backtrack_node = backtrack_node.parent
+            plans.append(backtrack_node.state_tuble())
+            actions.append(action_str[action_space.index(backtrack_node.direction)])
+            actions[-1] = action_str[4]
+            break
+        
+        for action in action_space:
+            new_node = transition(current_node,action,grid)
+            if new_node is not None and new_node.xy_tuble() not in explored_set:
+                new_node.parent = current_node
+                new_node.direction = action
+                explored.append(new_node.state_tuble())
+                explored_set.add(new_node.xy_tuble())
+                tovisitnext.append(new_node)
+        # print(len(tovisitnext))
+
+    plans.reverse()
+    actions.reverse()
+    return (actions,plans,explored)
+
+
+def cost_search(grid: np.ndarray) -> Tuple[
+            Annotated[List[str], 'actions of the plan'],
+            Annotated[List[State], 'states of the plan'],
+            Annotated[List[State], 'explored states']]:
+    """Return a plan (actions and states) and a list of explored states (in order)."""
+
+    facing_map = ['N','E','S','W'] # to determine facing based on value 20 30 40 50
+
+    action_space = ['W','N','E','S'] # action space
+    action_str = ['Move West','Move North','Move East','Move South','At the start']
+
+
+    # declare initial state
+    (ax,ay) = find_agent(grid)
+    init_node = node(ax,ay,facing_map[grid[ay][ax]//10 - 2],None)
+
+    # declare goal state
+    goal_node = node(len(grid),len(grid[0]),'W',None)
+
+    explored = []
+
+    # (x,y)
+    explored_set = set()
+
+    # (node)
+    open_set = set() # store cell that have been visited but not selected yet
+
+    actions = []
+    plans = []
+
+    # store cost sum which can be changed due to cost relaxation protocol
+    cost_sum_grid = np.ndarray((len(grid),len(grid[0])))
+    cost_sum_grid.fill(np.inf)
+
+    # layout (node)
+    explored.append(init_node.state_tuble())
+    explored_set.add(init_node.xy_tuble())
+    open_set.add(init_node.xy_tuble())
+    cost_sum_grid[init_node.y][init_node.x] = 0 # initial node cost sum is 0
+
+    parent_dict = {} # to trace back to parent using key in the format "x,y"
+    parent_dict[str(init_node.x).join(',').join(str(init_node.y))] = None
+    i = 0
+    while len(open_set) != 0:
+        if(i == 300):
+            break
+        min_cost_sum = np.inf
+        min_heuristic = np.inf
+        selected_node = None
+        # selecting node to expand
+        for _node in open_set:
+            (nx,ny) = _node
+            if cost_sum_grid[ny][nx] + heuristic(node(nx,ny,'w',None),goal_node) < min_cost_sum + min_heuristic:
+                min_cost_sum = cost_sum_grid[ny][nx]
+                min_heuristic = heuristic(node(nx,ny,'w',None),goal_node)
+                selected_node = node(nx,ny,'w',None)
+
+        # print(open_set)
+        open_set.remove(selected_node.xy_tuble())
+        # print(open_set)
+
+        # end case
+        # print(selected_node.state_tuble())
+        if is_goal(selected_node,grid):
+            # print('leaving loop')
+            break
+        
+        for action in action_space:
+            new_node = transition(selected_node,action,grid)
+            if new_node is None:
+                continue
+            action_cost = cost(new_node,action,grid)
+            if new_node.xy_tuble() in open_set:
+                # update the cost_sum / parent (relaxation)
+                if cost_sum_grid[new_node.y][new_node.x] < cost_sum_grid[selected_node.y][selected_node.x] + action_cost:
+                    cost_sum_grid[new_node.y][new_node.x] = cost_sum_grid[selected_node.y][selected_node.x] + action_cost
+                    parent_dict[str(new_node.x).join(',').join(str(new_node.y))] = selected_node.xy_tuble()
+            elif new_node.xy_tuble() not in explored_set:
+                # print('add')
+                # assign cost_sum / parent
+                # add to open_set
+                cost_sum_grid[new_node.y][new_node.x] = cost_sum_grid[selected_node.y][selected_node.x] + action_cost
+                parent_dict[str(new_node.x).join(',').join(str(new_node.y))] = selected_node.xy_tuble()
+                open_set.add(new_node.xy_tuble())
+                explored.append((new_node.x,new_node.y,action))
+                explored_set.add(new_node.xy_tuble())
+        # i = i + 1
+        # print('i is ', i)
+    return (actions,plans,explored)
+
+
+        
+        
+        
+            
+
+        
+        
+
+
+
+
+
+
+
+
+
+
 
 
 
