@@ -1,3 +1,4 @@
+from multiprocessing import parent_process
 from pydoc_data.topics import topics
 from typing import Literal, List, Tuple, TypeAlias, Annotated
 import heapq
@@ -61,9 +62,15 @@ def cost(state: State, actoin: str, grid: np.ndarray) -> float:
     # TODO
     # Place the following lines with your own implementation
     # State (x,y,f)
-    if(grid[state.y][state.x] > 19 and grid[state.y][state.x] < 60):
-        return 0
-    return grid[state.y][state.x]
+    if type(state) is node:
+        if(grid[state.y][state.x] > 19 and grid[state.y][state.x] < 60):
+            return 0
+        return grid[state.y][state.x]
+    else:
+        if(grid[state[1]][state[0]] > 19 and grid[state[1]][state[0]] < 60):
+            return 0
+        return grid[state[1]][state[0]]
+
 
 
 #===============================================================================
@@ -167,7 +174,7 @@ def graph_search(
         
     elif strategy == 'A*' or strategy == 'UCS' or strategy == 'GS':  ############################################################################################
         
-        return cost_search(grid)
+        return cost_search(grid,strategy)
 
 
 class node:
@@ -176,6 +183,10 @@ class node:
         self.y = y
         self.direction = direction
         self.parent = parent
+        self.cost_sum = np.inf # use for cost search
+
+    def assign_cost_sum(self,sum):
+        self.cost_sum = sum
 
     def __eq__(self, __o: object) -> bool: # for comparison 
         return True
@@ -187,7 +198,7 @@ class node:
         return (int(self.x),int(self.y),self.direction)
 
 
-def depth_first_search(
+def depth_first_search( ##########################################
         grid: np.ndarray
         ) -> Tuple[
             Annotated[List[str], 'actions of the plan'],
@@ -214,7 +225,7 @@ def depth_first_search(
     plans = []
 
     action_space = ['W','N','E','S'] # action space
-    action_str = ['Move West','Move North','Move East','Move South','At the start']
+    action_str = ['Move West','Move North','Move East','Move South','Stop']
     action_value = [0.4,0.3,0.2,0.1] # action value offset
 
     # layout -> (depth,node) # depth is a value that determine the priority
@@ -227,16 +238,18 @@ def depth_first_search(
         explored.append((current_node[1].state_tuble()))
         explored_set.add(current_node[1].xy_tuble())
 
+
         if is_goal(current_node[1],grid):
             # backtracking to form path on plans list
             backtrack_node = current_node[1]
-            while backtrack_node.parent is not None:
-                plans.append(backtrack_node.state_tuble())
-                actions.append(action_str[action_space.index(backtrack_node.direction)])
-                backtrack_node = backtrack_node.parent
+            child_node = None
             plans.append(backtrack_node.state_tuble())
-            actions.append(action_str[action_space.index(backtrack_node.direction)])
-            actions[-1] = action_str[4]
+            actions.append(action_str[4])
+            while backtrack_node.parent is not None:
+                child_node = backtrack_node
+                backtrack_node = backtrack_node.parent
+                plans.append(backtrack_node.state_tuble())
+                actions.append(action_str[action_space.index(child_node.direction)])
 
             break
 
@@ -255,7 +268,7 @@ def depth_first_search(
     return (actions,plans,explored)
 
 
-def breadth_first_search(
+def breadth_first_search( ###############################################
         grid: np.ndarray
         ) -> Tuple[
             Annotated[List[str], 'actions of the plan'],
@@ -266,7 +279,7 @@ def breadth_first_search(
     facing_map = ['N','E','S','W'] # to determine facing based on value 20 30 40 50
 
     action_space = ['W','N','E','S'] # action space
-    action_str = ['Move West','Move North','Move East','Move South','At the start']
+    action_str = ['Move West','Move North','Move East','Move South','Stop']
 
 
     # declare initial state
@@ -293,13 +306,14 @@ def breadth_first_search(
         if is_goal(current_node,grid):
             # Backtracking
             backtrack_node = current_node
-            while backtrack_node.parent is not None:
-                plans.append(backtrack_node.state_tuble())
-                actions.append(action_str[action_space.index(backtrack_node.direction)])
-                backtrack_node = backtrack_node.parent
+            child_node = None
             plans.append(backtrack_node.state_tuble())
-            actions.append(action_str[action_space.index(backtrack_node.direction)])
-            actions[-1] = action_str[4]
+            actions.append(action_str[4])
+            while backtrack_node.parent is not None:
+                child_node = backtrack_node
+                backtrack_node = backtrack_node.parent
+                plans.append(backtrack_node.state_tuble())
+                actions.append(action_str[action_space.index(child_node.direction)])
             break
         
         for action in action_space:
@@ -316,17 +330,15 @@ def breadth_first_search(
     actions.reverse()
     return (actions,plans,explored)
 
-
-def cost_search(grid: np.ndarray) -> Tuple[
+def cost_search(grid: np.ndarray,strategy) -> Tuple[ ###########################################################
             Annotated[List[str], 'actions of the plan'],
             Annotated[List[State], 'states of the plan'],
             Annotated[List[State], 'explored states']]:
-    """Return a plan (actions and states) and a list of explored states (in order)."""
-
+    
     facing_map = ['N','E','S','W'] # to determine facing based on value 20 30 40 50
 
     action_space = ['W','N','E','S'] # action space
-    action_str = ['Move West','Move North','Move East','Move South','At the start']
+    action_str = ['Move West','Move North','Move East','Move South','Stop']
 
 
     # declare initial state
@@ -334,7 +346,7 @@ def cost_search(grid: np.ndarray) -> Tuple[
     init_node = node(ax,ay,facing_map[grid[ay][ax]//10 - 2],None)
 
     # declare goal state
-    goal_node = node(len(grid),len(grid[0]),'W',None)
+    goal_node = node(len(grid) - 2,len(grid[0]) - 2,'W',None)
 
     explored = []
 
@@ -342,70 +354,71 @@ def cost_search(grid: np.ndarray) -> Tuple[
     explored_set = set()
 
     # (node)
-    open_set = set() # store cell that have been visited but not selected yet
+    open_list = [] # store cell that have been visited but not selected yet
 
+    backtrack_node = None
     actions = []
     plans = []
 
-    # store cost sum which can be changed due to cost relaxation protocol
-    cost_sum_grid = np.ndarray((len(grid),len(grid[0])))
-    cost_sum_grid.fill(np.inf)
+    open_list.append(init_node)
+    init_node.assign_cost_sum(0)
 
-    # layout (node)
-    explored.append(init_node.state_tuble())
-    explored_set.add(init_node.xy_tuble())
-    open_set.add(init_node.xy_tuble())
-    cost_sum_grid[init_node.y][init_node.x] = 0 # initial node cost sum is 0
-
-    parent_dict = {} # to trace back to parent using key in the format "x,y"
-    parent_dict[str(init_node.x).join(',').join(str(init_node.y))] = None
-    i = 0
-    while len(open_set) != 0:
-        if(i == 300):
-            break
-        min_cost_sum = np.inf
-        min_heuristic = np.inf
+    while len(open_list) != 0:
+        min_cost_sum = np.inf if strategy == 'A*' or strategy == 'UCS' else 0
+        min_heuristic = np.inf if strategy == 'A*' or strategy == 'GS' else 0
         selected_node = None
-        # selecting node to expand
-        for _node in open_set:
-            (nx,ny) = _node
-            if cost_sum_grid[ny][nx] + heuristic(node(nx,ny,'w',None),goal_node) < min_cost_sum + min_heuristic:
-                min_cost_sum = cost_sum_grid[ny][nx]
-                min_heuristic = heuristic(node(nx,ny,'w',None),goal_node)
-                selected_node = node(nx,ny,'w',None)
 
-        # print(open_set)
-        open_set.remove(selected_node.xy_tuble())
-        # print(open_set)
+        # find new node O(len(open_list))
+        for current_node in open_list:
+            cost_sum = current_node.cost_sum if strategy == 'A*' or strategy == 'UCS' else 0
+            heuristic_value = heuristic(current_node,goal_node) if strategy == 'A*' or strategy == 'GS' else 0
+            if cost_sum + heuristic_value < min_cost_sum + min_heuristic:
+                min_cost_sum = cost_sum
+                min_heuristic = heuristic_value
+                selected_node = current_node
 
-        # end case
-        # print(selected_node.state_tuble())
+        # set x,y to visited/explore once selected
+        explored.append(selected_node.state_tuble())
+        explored_set.add(selected_node.xy_tuble())
+
+        # check if the goal is met
         if is_goal(selected_node,grid):
-            # print('leaving loop')
+            backtrack_node = selected_node
             break
         
+        # remove node that has x,y as the same as selected node from open list O(len(open_list))
+        keep_node = []
+        for _node in open_list:
+            if _node.xy_tuble() != selected_node.xy_tuble():
+                keep_node.append(_node)
+        open_list = keep_node
+        # open_list.remove(selected_node)
+
+        # relax node cost_sum or add node into the open list
         for action in action_space:
-            new_node = transition(selected_node,action,grid)
-            if new_node is None:
-                continue
-            action_cost = cost(new_node,action,grid)
-            if new_node.xy_tuble() in open_set:
-                # update the cost_sum / parent (relaxation)
-                if cost_sum_grid[new_node.y][new_node.x] < cost_sum_grid[selected_node.y][selected_node.x] + action_cost:
-                    cost_sum_grid[new_node.y][new_node.x] = cost_sum_grid[selected_node.y][selected_node.x] + action_cost
-                    parent_dict[str(new_node.x).join(',').join(str(new_node.y))] = selected_node.xy_tuble()
-            elif new_node.xy_tuble() not in explored_set:
-                # print('add')
-                # assign cost_sum / parent
-                # add to open_set
-                cost_sum_grid[new_node.y][new_node.x] = cost_sum_grid[selected_node.y][selected_node.x] + action_cost
-                parent_dict[str(new_node.x).join(',').join(str(new_node.y))] = selected_node.xy_tuble()
-                open_set.add(new_node.xy_tuble())
-                explored.append((new_node.x,new_node.y,action))
-                explored_set.add(new_node.xy_tuble())
-        # i = i + 1
-        # print('i is ', i)
+            adjacent_node = transition(selected_node,action,grid)
+            if adjacent_node is not None and adjacent_node.xy_tuble() not in explored_set:
+                adjacent_node.assign_cost_sum(selected_node.cost_sum + cost(selected_node,action,grid))
+                adjacent_node.direction = action
+                adjacent_node.parent = selected_node
+                open_list.append(adjacent_node) # 2 nodes may have duplicate x,y value but parent not the same, (this does not affect the algorithm but affect space complexity)
+    
+    # backtracking 
+    child_node = None
+    plans.append(backtrack_node.state_tuble())
+    actions.append(action_str[4])
+    while backtrack_node.parent is not None:
+        child_node = backtrack_node
+        backtrack_node = backtrack_node.parent
+        plans.append(backtrack_node.state_tuble())
+        actions.append(action_str[action_space.index(child_node.direction)])
+    actions.reverse()
+    plans.reverse()
+
+
     return (actions,plans,explored)
+
+
 
 
         
