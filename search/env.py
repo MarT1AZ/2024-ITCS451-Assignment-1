@@ -85,7 +85,7 @@ def gen_maze(
     grid[start] = np.random.choice([20, 30, 40, 50])
     # grid[start] = np.random.choice([2, 3, 4, 5])
     grid[goal] = 6
-    grid.flags.writeable = False
+    grid.flags.writeable = True
     return grid.T
 
 

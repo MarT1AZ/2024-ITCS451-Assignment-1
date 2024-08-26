@@ -1,3 +1,4 @@
+from http.client import NOT_FOUND
 from multiprocessing import parent_process
 from pydoc_data.topics import topics
 from typing import Literal, List, Tuple, TypeAlias, Annotated
@@ -198,6 +199,23 @@ class node:
         return (int(self.x),int(self.y),self.direction)
 
 
+def backtracking(goalnode):
+    action_space = ['W','N','E','S']
+    action_str = ['Move West','Move North','Move East','Move South','Stop']
+    plans = []
+    actions = []
+    backtrack_node = goalnode
+    child_node = None
+    plans.append(backtrack_node.state_tuble())
+    actions.append(action_str[4])
+    while backtrack_node.parent is not None:
+        child_node = backtrack_node
+        backtrack_node = backtrack_node.parent
+        plans.append(backtrack_node.state_tuble())
+        actions.append(action_str[action_space.index(child_node.direction)])
+    return plans,actions
+
+
 def depth_first_search( ##########################################
         grid: np.ndarray
         ) -> Tuple[
@@ -231,8 +249,13 @@ def depth_first_search( ##########################################
     # layout -> (depth,node) # depth is a value that determine the priority
 
     tovisit.append((0,init_node))
+    not_found = False
 
     while True:
+        if len(tovisit) == 0:
+            not_found = True
+            break
+
         heapq.heapify(tovisit)
         current_node = heapq.heappop(tovisit)
         explored.append((current_node[1].state_tuble()))
@@ -241,16 +264,10 @@ def depth_first_search( ##########################################
 
         if is_goal(current_node[1],grid):
             # backtracking to form path on plans list
-            backtrack_node = current_node[1]
-            child_node = None
-            plans.append(backtrack_node.state_tuble())
-            actions.append(action_str[4])
-            while backtrack_node.parent is not None:
-                child_node = backtrack_node
-                backtrack_node = backtrack_node.parent
-                plans.append(backtrack_node.state_tuble())
-                actions.append(action_str[action_space.index(child_node.direction)])
-
+            
+            if not_found:
+                break
+            plans,actions = backtracking(current_node[1])
             break
 
         for i in range(0,len(action_space)):
@@ -263,8 +280,14 @@ def depth_first_search( ##########################################
                 new_node.direction = action
                 tovisit.append((int(current_node[0]) - 1 - offset,new_node))
 
-    plans.reverse()
-    actions.reverse()
+
+    if not_found:
+        plans.append(init_node.state_tuble())
+        actions.append('path not found / staying on start')
+    else:
+        plans.reverse()
+        actions.reverse()
+        
     return (actions,plans,explored)
 
 
@@ -279,9 +302,7 @@ def breadth_first_search( ###############################################
     facing_map = ['N','E','S','W'] # to determine facing based on value 20 30 40 50
 
     action_space = ['W','N','E','S'] # action space
-    action_str = ['Move West','Move North','Move East','Move South','Stop']
-
-
+    
     # declare initial state
     (ax,ay) = find_agent(grid)
     init_node = node(ax,ay,facing_map[grid[ay][ax]//10 - 2],None)
@@ -298,22 +319,20 @@ def breadth_first_search( ###############################################
     explored_set.add(init_node.xy_tuble())
     tovisitnext.append(init_node)
 
+    not_found = False
 
-    while len(tovisitnext) != 0:
+    while True:
         
+        if len(tovisitnext) == 0:
+            not_found = True
+            # break if not found
+            break
+
         current_node = tovisitnext.pop(0)
 
         if is_goal(current_node,grid):
             # Backtracking
-            backtrack_node = current_node
-            child_node = None
-            plans.append(backtrack_node.state_tuble())
-            actions.append(action_str[4])
-            while backtrack_node.parent is not None:
-                child_node = backtrack_node
-                backtrack_node = backtrack_node.parent
-                plans.append(backtrack_node.state_tuble())
-                actions.append(action_str[action_space.index(child_node.direction)])
+            plans,actions = backtracking(current_node)
             break
         
         for action in action_space:
@@ -326,8 +345,12 @@ def breadth_first_search( ###############################################
                 tovisitnext.append(new_node)
         # print(len(tovisitnext))
 
-    plans.reverse()
-    actions.reverse()
+    if not_found:
+        plans.append(init_node.state_tuble())
+        actions.append('path not found / staying on start')
+    else:
+        plans.reverse()
+        actions.reverse()
     return (actions,plans,explored)
 
 def cost_search(grid: np.ndarray,strategy) -> Tuple[ ###########################################################
@@ -338,8 +361,6 @@ def cost_search(grid: np.ndarray,strategy) -> Tuple[ ###########################
     facing_map = ['N','E','S','W'] # to determine facing based on value 20 30 40 50
 
     action_space = ['W','N','E','S'] # action space
-    action_str = ['Move West','Move North','Move East','Move South','Stop']
-
 
     # declare initial state
     (ax,ay) = find_agent(grid)
@@ -363,7 +384,15 @@ def cost_search(grid: np.ndarray,strategy) -> Tuple[ ###########################
     open_list.append(init_node)
     init_node.assign_cost_sum(0)
 
-    while len(open_list) != 0:
+    not_found = False
+
+    while True:
+
+
+        if len(open_list) == 0:
+            not_found = True
+            break
+            
         min_cost_sum = np.inf if strategy == 'A*' or strategy == 'UCS' else 0
         min_heuristic = np.inf if strategy == 'A*' or strategy == 'GS' else 0
         selected_node = None
@@ -383,7 +412,7 @@ def cost_search(grid: np.ndarray,strategy) -> Tuple[ ###########################
 
         # check if the goal is met
         if is_goal(selected_node,grid):
-            backtrack_node = selected_node
+            plans,actions = backtracking(selected_node)
             break
         
         # remove node that has x,y as the same as selected node from open list O(len(open_list))
@@ -402,18 +431,14 @@ def cost_search(grid: np.ndarray,strategy) -> Tuple[ ###########################
                 adjacent_node.direction = action
                 adjacent_node.parent = selected_node
                 open_list.append(adjacent_node) # 2 nodes may have duplicate x,y value but parent not the same, (this does not affect the algorithm but affect space complexity)
+
     
-    # backtracking 
-    child_node = None
-    plans.append(backtrack_node.state_tuble())
-    actions.append(action_str[4])
-    while backtrack_node.parent is not None:
-        child_node = backtrack_node
-        backtrack_node = backtrack_node.parent
-        plans.append(backtrack_node.state_tuble())
-        actions.append(action_str[action_space.index(child_node.direction)])
-    actions.reverse()
-    plans.reverse()
+    if not_found:
+        plans.append(init_node.state_tuble())
+        actions.append('path not found / staying on start')
+    else:
+        plans.reverse()
+        actions.reverse()
 
 
     return (actions,plans,explored)
