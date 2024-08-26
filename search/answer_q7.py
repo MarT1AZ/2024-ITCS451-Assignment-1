@@ -35,11 +35,13 @@ def state_func(grid: np.ndarray) -> State:
     - facing ('N', 'E', 'S', or 'W')
     """
     # TODO
-    pass
+    facing_map = ['N','E','S','W']
+    x,y = find_agent(grid)
+    return node(x,y,facing_map[grid[y][x] // 10 - 2],None)
 
 
 # TODO
-ACTIONS: List[str] = []
+ACTIONS: List[str] = ['W','N','E','S']
 
 def transition(state: State, action: str, grid: np.ndarray) -> State:
     """Return a new state."""
@@ -123,52 +125,10 @@ def graph_search(
     # TODO
     # Replace the lines below with your own implementation
 
-    actions = []
-    plans = []
-    explored = []
-
-    # goal
-    goal = (len(grid) - 2,len(grid[0]) - 2)
-
-
-    # find agent
-    ax,ay = find_agent(grid)
-    ax = int(ax)
-    ay = int(ay)
-    dir_str_map = ['N','E','S','W']
-    dir_map = [(1,0),(0,1),(-1,0),(0,-1)]
-
-    # use for backtracking from goal to start cell (dfs)
-    dict_assign_index = 0
-    parent_dict = {}
-    # use for backtracking from goal to start cell (dfs)
-
-    
-
-
-
-    """
-    '^', '>', 'v', '<'
-     2   3     4    5
-    agent positions are 0-indexed so plus one to make it look like 1 - indexed
-    
-    Symbol mapping:
-    -  0: ' ', empty (passable)
-    -  1: '#', wall (not passable)
-    -  2x: '^', agent is facing up (north)
-    -  3x: '>', agent is facing right (east)
-    -  4x: 'v', agent is facing down (south)
-    -  5x: '<', agent is facing left (west)
-    -  6: 'G', goal
-    -  7: '~', mud (passable, but cost more)
-    -  8: '.', grass (passable, but cost more)
-    """
     if strategy == 'DFS':  ############################################################################################
         
-
         return depth_first_search(grid)
         
-
     elif strategy == 'BFS': ############################################################################################
 
         return breadth_first_search(grid)
@@ -224,16 +184,10 @@ def depth_first_search( ##########################################
             Annotated[List[State], 'explored states']]:
     """Return a plan (actions and states) and a list of explored states (in order)."""
 
-
-    facing_map = ['N','E','S','W'] # to determine facing based on value 20 30 40 50
-
-    action_space = ['W','N','E','S'] # action space
     action_value = [0.4,0.3,0.2,0.1] # action value offset
 
-
     # declare initial state
-    (ax,ay) = find_agent(grid)
-    init_node = node(ax,ay,facing_map[grid[ay][ax]//10 - 2],None)
+    init_node = state_func(grid)
     
     tovisit = []
     explored_set = set() # for cheking if the node ahs been visited or not in o(1)
@@ -242,8 +196,6 @@ def depth_first_search( ##########################################
     actions = [] 
     plans = []
 
-    action_space = ['W','N','E','S'] # action space
-    action_str = ['Move West','Move North','Move East','Move South','Stop']
     action_value = [0.4,0.3,0.2,0.1] # action value offset
 
     # layout -> (depth,node) # depth is a value that determine the priority
@@ -261,7 +213,6 @@ def depth_first_search( ##########################################
         explored.append((current_node[1].state_tuble()))
         explored_set.add(current_node[1].xy_tuble())
 
-
         if is_goal(current_node[1],grid):
             # backtracking to form path on plans list
             
@@ -270,8 +221,8 @@ def depth_first_search( ##########################################
             plans,actions = backtracking(current_node[1])
             break
 
-        for i in range(0,len(action_space)):
-            action = action_space[i]
+        for i in range(0,len(ACTIONS)):
+            action = ACTIONS[i]
             offset = action_value[i]
             new_node = transition(current_node[1],action,grid)
             
@@ -299,13 +250,8 @@ def breadth_first_search( ###############################################
             Annotated[List[State], 'explored states']]:
     """Return a plan (actions and states) and a list of explored states (in order)."""
 
-    facing_map = ['N','E','S','W'] # to determine facing based on value 20 30 40 50
-
-    action_space = ['W','N','E','S'] # action space
-    
     # declare initial state
-    (ax,ay) = find_agent(grid)
-    init_node = node(ax,ay,facing_map[grid[ay][ax]//10 - 2],None)
+    init_node = state_func(grid)
 
     explored = []
     explored_set = set()
@@ -335,7 +281,7 @@ def breadth_first_search( ###############################################
             plans,actions = backtracking(current_node)
             break
         
-        for action in action_space:
+        for action in ACTIONS:
             new_node = transition(current_node,action,grid)
             if new_node is not None and new_node.xy_tuble() not in explored_set:
                 new_node.parent = current_node
@@ -357,14 +303,9 @@ def cost_search(grid: np.ndarray,strategy) -> Tuple[ ###########################
             Annotated[List[str], 'actions of the plan'],
             Annotated[List[State], 'states of the plan'],
             Annotated[List[State], 'explored states']]:
-    
-    facing_map = ['N','E','S','W'] # to determine facing based on value 20 30 40 50
-
-    action_space = ['W','N','E','S'] # action space
 
     # declare initial state
-    (ax,ay) = find_agent(grid)
-    init_node = node(ax,ay,facing_map[grid[ay][ax]//10 - 2],None)
+    init_node = state_func(grid)
 
     # declare goal state
     goal_node = node(len(grid) - 2,len(grid[0]) - 2,'W',None)
@@ -377,7 +318,6 @@ def cost_search(grid: np.ndarray,strategy) -> Tuple[ ###########################
     # (node)
     open_list = [] # store cell that have been visited but not selected yet
 
-    backtrack_node = None
     actions = []
     plans = []
 
@@ -424,7 +364,7 @@ def cost_search(grid: np.ndarray,strategy) -> Tuple[ ###########################
         # open_list.remove(selected_node)
 
         # relax node cost_sum or add node into the open list
-        for action in action_space:
+        for action in ACTIONS:
             adjacent_node = transition(selected_node,action,grid)
             if adjacent_node is not None and adjacent_node.xy_tuble() not in explored_set:
                 adjacent_node.assign_cost_sum(selected_node.cost_sum + cost(selected_node,action,grid))
